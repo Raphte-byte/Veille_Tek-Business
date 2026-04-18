@@ -61,25 +61,33 @@ TRACKED_SKILLS = [
     "git", "agile", "scrum", "api", "rest", "graphql", "microservices",
 ]
 
-# Queries de recherche Indeed
-INDEED_QUERIES_FRANCE = [
-    "développeur", "developer", "ingénieur logiciel", "software engineer",
+# Queries de recherche
+QUERIES_FRANCE = [
+    "développeur", "developer", "ingénieur logiciel",
     "fullstack", "frontend", "backend", "devops", "data scientist",
-    "data engineer", "lead developer",
+]
+
+INDEED_QUERIES_FRANCE = [
+    "développeur", "fullstack", "backend", "devops", "data scientist",
 ]
 
 INDEED_QUERIES_NICE = [
-    "développeur alternance", "developer alternance", "informatique alternance",
-    "développeur Nice", "ingénieur Nice", "devops Nice",
+    "développeur alternance Nice",
+    "developer alternance Nice",
+    "informatique alternance Nice",
 ]
 
-# ─── Scrapers ─────────────────────────────────────────────────────────────────
+QUERIES_NICE = [
+    "développeur alternance Nice",
+    "developer alternance Nice",
+    "informatique alternance Nice",
+    "devops alternance Nice",
+]
+
+# ─── Sources emploi ────────────────────────────────────────────────────────────
 
 def fetch_indeed_france(query: str) -> list[dict]:
-    """
-    Scrape Indeed France via RSS public.
-    Note: Indeed RSS est limité mais gratuit et légal.
-    """
+    """Scrape Indeed France via RSS public."""
     url = f"https://fr.indeed.com/rss?q={requests.utils.quote(query)}&l=France&sort=date"
     try:
         import feedparser
@@ -89,23 +97,22 @@ def fetch_indeed_france(query: str) -> list[dict]:
             title = entry.get("title", "")
             summary = entry.get("summary", "")
             link = entry.get("link", "")
-            if _is_ad(title + summary):
-                continue
             results.append({
                 "title": title,
                 "summary": summary[:500],
                 "url": link,
                 "location": _extract_location(title + summary),
                 "raw_text": (title + " " + summary).lower(),
+                "source": "Indeed",
             })
         return results
     except Exception as e:
-        log.error(f"Indeed France ({query}): {e}")
+        log.warning(f"Indeed France ({query}): {e}")
         return []
 
 
 def fetch_indeed_nice(query: str) -> list[dict]:
-    """Scrape Indeed Nice + Sophia Antipolis."""
+    """Scrape Indeed Nice + Sophia Antipolis via RSS."""
     url = f"https://fr.indeed.com/rss?q={requests.utils.quote(query)}&l=Nice+%2806%29&radius=30&sort=date"
     try:
         import feedparser
@@ -115,25 +122,115 @@ def fetch_indeed_nice(query: str) -> list[dict]:
             title = entry.get("title", "")
             summary = entry.get("summary", "")
             link = entry.get("link", "")
-            if _is_ad(title + summary):
-                continue
             results.append({
                 "title": title,
                 "summary": summary[:500],
                 "url": link,
                 "location": _extract_location(title + summary),
                 "raw_text": (title + " " + summary).lower(),
+                "source": "Indeed",
             })
         return results
     except Exception as e:
-        log.error(f"Indeed Nice ({query}): {e}")
+        log.warning(f"Indeed Nice ({query}): {e}")
+        return []
+
+
+def fetch_france_travail(query: str, alternance: bool = False) -> list[dict]:
+    """
+    API officielle France Travail (ex Pôle Emploi) — gratuite, fiable depuis CI.
+    Nécessite FRANCE_TRAVAIL_CLIENT_ID + FRANCE_TRAVAIL_CLIENT_SECRET.
+    Inscription: https://francetravail.io/data/api/offres-emploi
+    """
+    client_id = os.environ.get("FRANCE_TRAVAIL_CLIENT_ID")
+    client_secret = os.environ.get("FRANCE_TRAVAIL_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        log.warning("France Travail: FRANCE_TRAVAIL_CLIENT_ID/SECRET non définis — skippé.")
+        return []
+
+    token_url = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
+    try:
+        token_resp = requests.post(token_url, data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "api_offresdemploiv2 o2dsoffre",
+        }, timeout=15)
+        token_resp.raise_for_status()
+        token = token_resp.json()["access_token"]
+    except Exception as e:
+        log.warning(f"France Travail auth: {e}")
+        return []
+
+    params = {"motsCles": query, "range": "0-49", "sort": "1"}
+    if alternance:
+        params["typeContrat"] = "PR"
+
+    try:
+        resp = requests.get(
+            "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            params=params,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        results = []
+        for o in resp.json().get("resultats", []):
+            title = o.get("intitule", "")
+            desc = o.get("description", "")[:400]
+            results.append({
+                "title": title,
+                "summary": desc,
+                "url": o.get("origineOffre", {}).get("urlOrigine", ""),
+                "location": o.get("lieuTravail", {}).get("libelle", ""),
+                "raw_text": (title + " " + desc).lower(),
+                "source": "France Travail",
+            })
+        return results
+    except Exception as e:
+        log.warning(f"France Travail ({query}): {e}")
+        return []
+
+
+def fetch_adzuna(query: str, location: str = "France") -> list[dict]:
+    """
+    API Adzuna — free tier 250 req/jour, données France.
+    Nécessite ADZUNA_APP_ID + ADZUNA_API_KEY.
+    Inscription: https://developer.adzuna.com/
+    """
+    app_id = os.environ.get("ADZUNA_APP_ID")
+    api_key = os.environ.get("ADZUNA_API_KEY")
+    if not app_id or not api_key:
+        log.warning("Adzuna: ADZUNA_APP_ID/API_KEY non définis — skippé.")
+        return []
+
+    try:
+        resp = requests.get(
+            "https://api.adzuna.com/v1/api/jobs/fr/search/1",
+            params={"app_id": app_id, "app_key": api_key, "what": query, "where": location, "results_per_page": 20},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        results = []
+        for job in resp.json().get("results", []):
+            title = job.get("title", "")
+            desc = job.get("description", "")[:400]
+            results.append({
+                "title": title,
+                "summary": desc,
+                "url": job.get("redirect_url", ""),
+                "location": job.get("location", {}).get("display_name", location),
+                "raw_text": (title + " " + desc).lower(),
+                "source": "Adzuna",
+            })
+        return results
+    except Exception as e:
+        log.warning(f"Adzuna ({query}): {e}")
         return []
 
 
 def fetch_apec() -> list[dict]:
-    """Scrape les offres APEC IT via RSS."""
-    url = "https://www.apec.fr/candidat/recherche-emploi.html/emploi?motsCles=développeur&fonctions=253006&fonctions=253007"
-    # APEC RSS alternatif
+    """Offres APEC IT via RSS public."""
     rss_url = "https://www.apec.fr/rss/offres-emploi-informatique.rss"
     try:
         import feedparser
@@ -146,6 +243,7 @@ def fetch_apec() -> list[dict]:
                 "title": title,
                 "summary": summary[:300],
                 "url": entry.get("link", ""),
+                "location": "",
                 "raw_text": (title + " " + summary).lower(),
                 "source": "APEC",
             })
@@ -153,13 +251,138 @@ def fetch_apec() -> list[dict]:
     except Exception as e:
         log.warning(f"APEC RSS: {e}")
         return []
+    """
+    API officielle France Travail (ex Pôle Emploi).
+    Nécessite FRANCE_TRAVAIL_CLIENT_ID + FRANCE_TRAVAIL_CLIENT_SECRET.
+    Docs: https://francetravail.io/data/api/offres-emploi
+    """
+    client_id = os.environ.get("FRANCE_TRAVAIL_CLIENT_ID")
+    client_secret = os.environ.get("FRANCE_TRAVAIL_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        return []
+
+    # Authentification OAuth2
+    token_url = "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire"
+    try:
+        token_resp = requests.post(token_url, data={
+            "grant_type": "client_credentials",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scope": "api_offresdemploiv2 o2dsoffre",
+        }, timeout=15)
+        token_resp.raise_for_status()
+        token = token_resp.json()["access_token"]
+    except Exception as e:
+        log.warning(f"France Travail auth: {e}")
+        return []
+
+    params = {
+        "motsCles": query,
+        "range": "0-49",
+        "sort": "1",  # tri par date
+    }
+    if location:
+        params["commune"] = location  # ex: "06088" pour Nice
+    if alternance:
+        params["typeContrat"] = "PR"  # Professionnalisation/Apprentissage
+
+    try:
+        resp = requests.get(
+            "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            params=params,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        results = []
+        for o in data.get("resultats", []):
+            title = o.get("intitule", "")
+            desc = o.get("description", "")[:400]
+            results.append({
+                "title": title,
+                "summary": desc,
+                "url": o.get("origineOffre", {}).get("urlOrigine", f"https://candidat.pole-emploi.fr/offres/recherche/detail/{o.get('id','')}"),
+                "location": o.get("lieuTravail", {}).get("libelle", ""),
+                "raw_text": (title + " " + desc).lower(),
+                "source": "France Travail",
+            })
+        return results
+    except Exception as e:
+        log.warning(f"France Travail ({query}): {e}")
+        return []
 
 
-def _is_ad(text: str) -> bool:
-    """Filtre les offres sponsorisées."""
-    text_lower = text.lower()
-    ads = ["sponsored", "sponsorisé", "promoted", "partner", "publicité"]
-    return any(kw in text_lower for kw in ads)
+def fetch_adzuna(query: str, location: str = "France", alternance: bool = False) -> list[dict]:
+    """
+    API Adzuna — free tier 250 req/jour, données France.
+    Nécessite ADZUNA_APP_ID + ADZUNA_API_KEY.
+    Inscription: https://developer.adzuna.com/
+    """
+    app_id = os.environ.get("ADZUNA_APP_ID")
+    api_key = os.environ.get("ADZUNA_API_KEY")
+    if not app_id or not api_key:
+        return []
+
+    q = query
+    if alternance:
+        q += " alternance"
+
+    try:
+        resp = requests.get(
+            f"https://api.adzuna.com/v1/api/jobs/fr/search/1",
+            params={
+                "app_id": app_id,
+                "app_key": api_key,
+                "what": q,
+                "where": location,
+                "results_per_page": 20,
+                "content-type": "application/json",
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        results = []
+        for job in data.get("results", []):
+            title = job.get("title", "")
+            desc = job.get("description", "")[:400]
+            results.append({
+                "title": title,
+                "summary": desc,
+                "url": job.get("redirect_url", ""),
+                "location": job.get("location", {}).get("display_name", location),
+                "raw_text": (title + " " + desc).lower(),
+                "source": "Adzuna",
+            })
+        return results
+    except Exception as e:
+        log.warning(f"Adzuna ({query}): {e}")
+        return []
+
+
+def fetch_apec() -> list[dict]:
+    """Offres APEC via RSS public (fonctionne depuis CI)."""
+    rss_url = "https://www.apec.fr/rss/offres-emploi-informatique.rss"
+    try:
+        import feedparser
+        feed = feedparser.parse(rss_url)
+        results = []
+        for entry in feed.entries[:20]:
+            title = entry.get("title", "")
+            summary = entry.get("summary", "")
+            results.append({
+                "title": title,
+                "summary": summary[:300],
+                "url": entry.get("link", ""),
+                "location": "",
+                "raw_text": (title + " " + summary).lower(),
+                "source": "APEC",
+            })
+        return results
+    except Exception as e:
+        log.warning(f"APEC RSS: {e}")
+        return []
 
 
 def _extract_location(text: str) -> str:
@@ -383,7 +606,7 @@ def build_report(
 
 ---
 
-*Sources: Indeed France, Indeed Nice, APEC*
+*Sources: Indeed France, Indeed Nice, APEC, France Travail, Adzuna*
 *Agent BYAN STATS-EMPLOI — Raphte's Job Market Radar*
 """
 
@@ -433,13 +656,15 @@ def main():
     offers_france = []
     offers_nice = []
 
-    # 1. Scraping France
+    # 1. Scraping France — toutes les sources
     if args.mode in ("france", "all"):
+        # Indeed RSS (peut être bloqué depuis CI — fallback silencieux)
         for query in INDEED_QUERIES_FRANCE:
             results = fetch_indeed_france(query)
             offers_france += results
-            log.info(f"  France [{query}]: {len(results)} offres")
+            log.info(f"  Indeed France [{query}]: {len(results)} offres")
 
+        # APEC RSS (fonctionne depuis CI)
         try:
             apec = fetch_apec()
             offers_france += apec
@@ -447,12 +672,43 @@ def main():
         except Exception as e:
             errors.append(f"APEC: {e}")
 
-    # 2. Scraping Nice
+        # France Travail API (si secrets configurés)
+        for query in QUERIES_FRANCE:
+            results = fetch_france_travail(query)
+            if results:
+                offers_france += results
+                log.info(f"  France Travail [{query}]: {len(results)} offres")
+
+        # Adzuna API (si secrets configurés)
+        for query in QUERIES_FRANCE[:3]:
+            results = fetch_adzuna(query)
+            if results:
+                offers_france += results
+                log.info(f"  Adzuna [{query}]: {len(results)} offres")
+
+    # 2. Scraping Nice — toutes les sources
     if args.mode in ("nice", "all"):
+        # Indeed RSS Nice
         for query in INDEED_QUERIES_NICE:
             results = fetch_indeed_nice(query)
             offers_nice += results
-            log.info(f"  Nice [{query}]: {len(results)} offres")
+            log.info(f"  Indeed Nice [{query}]: {len(results)} offres")
+
+        # France Travail alternance Nice (commune 06088 = Nice)
+        for query in ["développeur", "informatique", "devops"]:
+            results = fetch_france_travail(query, alternance=True)
+            # Filtre sur Nice / Alpes-Maritimes
+            nice_results = [o for o in results if any(k in o.get("location", "").lower() for k in ["nice", "06", "sophia", "antibes", "cannes", "grasse"])]
+            if nice_results:
+                offers_nice += nice_results
+                log.info(f"  France Travail Nice [{query}]: {len(nice_results)} offres")
+
+        # Adzuna Nice
+        for query in QUERIES_NICE[:2]:
+            results = fetch_adzuna(query, location="Nice")
+            if results:
+                offers_nice += results
+                log.info(f"  Adzuna Nice [{query}]: {len(results)} offres")
 
     # Déduplication basique
     seen = set()
