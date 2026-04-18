@@ -26,7 +26,7 @@ from collections import Counter
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-import google.genai as genai
+from groq import Groq
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -476,11 +476,11 @@ def analyze_with_gemini(
     previous_stats: dict,
 ) -> str:
     """Génère une analyse IA des tendances emploi."""
-    log.info("Analyzing with Gemini AI...")
+    log.info("Analyzing with Groq AI...")
 
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not set.")
+        raise ValueError("GROQ_API_KEY not set.")
 
     skills_text = "\n".join([
         f"- {skill}: {count} offres"
@@ -539,12 +539,14 @@ RÈGLES:
 - Adapté à un étudiant junior, pas un senior
 """
 
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=prompt,
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=2048,
     )
-    return response.text
+    return response.choices[0].message.content
 
 # ─── Report Builder ───────────────────────────────────────────────────────────
 

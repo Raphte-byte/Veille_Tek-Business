@@ -23,7 +23,7 @@ from pathlib import Path
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-import google.genai as genai
+from groq import Groq
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -321,12 +321,12 @@ def fetch_youtube(config: dict) -> list[dict]:
 # ─── AI Summary ───────────────────────────────────────────────────────────────
 
 def summarize_with_gemini(articles: list[dict], trending_repos: list[dict], reddit_posts: list[dict], youtube_videos: list[dict]) -> str:
-    """Génère un résumé structuré avec Gemini AI."""
-    log.info("Generating summary with Gemini AI...")
+    """Génère un résumé structuré avec Groq AI."""
+    log.info("Generating summary with Groq AI...")
 
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY not set. Add it as GitHub Secret.")
+        raise ValueError("GROQ_API_KEY not set. Add it as GitHub Secret (https://console.groq.com).")
 
     articles_text = "\n".join([
         f"- [{a['source']}] {a['title']} | {a.get('url', '')}"
@@ -409,12 +409,14 @@ RÈGLES:
 - Reddit = signal de terrain, pas de drama inutile
 """
 
-    client = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=prompt,
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=4096,
     )
-    return response.text
+    return response.choices[0].message.content
 
 # ─── Report Builder ───────────────────────────────────────────────────────────
 
