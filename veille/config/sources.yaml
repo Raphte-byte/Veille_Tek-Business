@@ -1,0 +1,196 @@
+# Sources de veille configurables
+# Ajoute tes propres sources RSS ou API ici
+
+sources:
+  # Sources activées par défaut
+  hackernews:
+    enabled: true
+    type: api
+    url: "https://hn.algolia.com/api/v1/search"
+    params:
+      tags: "story"
+      hitsPerPage: 30
+    description: "HackerNews — Tendances de fond"
+
+  github_trending:
+    enabled: true
+    type: web
+    url: "https://github.com/trending"
+    params:
+      since: "weekly"
+    description: "GitHub Trending — Nouveaux outils populaires"
+
+  devto:
+    enabled: true
+    type: rss
+    url: "https://dev.to/feed"
+    tags:
+      - javascript
+      - python
+      - devops
+      - webdev
+      - beginners
+    description: "Dev.to — Tutoriels et retours d'expérience"
+
+  medium_programming:
+    enabled: true
+    type: rss
+    url: "https://medium.com/feed/tag/programming"
+    description: "Medium Programming — Articles de fond"
+
+  medium_webdev:
+    enabled: true
+    type: rss
+    url: "https://medium.com/feed/tag/web-development"
+    description: "Medium Web Dev"
+
+  # ─── Reddit ────────────────────────────────────────────────────────────────
+  reddit:
+    enabled: true
+    type: api
+    description: "Reddit — Ce que les devs pensent vraiment (API publique, sans clé)"
+    subreddits:
+      - programming
+      - webdev
+      - learnprogramming
+      - devops
+      - MachineLearning
+      - Python
+      - javascript
+      - ExperiencedDevs
+    # Ajoute tes subreddits ici :
+    # - rust
+    # - golang
+    # - docker
+
+  # ─── YouTube ───────────────────────────────────────────────────────────────
+  youtube:
+    enabled: true
+    type: api
+    description: "YouTube — Vidéos tech de la semaine (nécessite YOUTUBE_API_KEY)"
+    max_results: 5
+    search_queries:
+      - "programming tutorial 2026"
+      - "web development"
+      - "AI developer tools"
+      - "software engineering"
+    # Ajoute tes propres queries ici :
+    # - "python data science"
+    # - "docker kubernetes"
+
+  # ─── Newsletters & Blogs FR ────────────────────────────────────────────────
+
+  la_ferme_du_web:
+    enabled: true
+    type: rss
+    url: "https://www.lafermeweb.com/feed/"
+    description: "La Ferme du Web — Tendances web, design, outils (FR)"
+
+  # CodeWithMpia et Veille Techno IT — URLs à confirmer par l'utilisateur
+  codewithmpia:
+    enabled: true
+    type: rss
+    url: "https://codewithmpia.com/rss.xml"
+    description: "CodeWithMpia — Tutoriels dev web/mobile en français (Python, JS, Flutter)"
+
+  veille_techno_it:
+    enabled: true
+    type: rss
+    url: "https://www.veilletechno-it.info/feed"
+    description: "Veille Techno IT — Actualités IT en français"
+
+  # ─── Newsletters Tech (Anglais) ────────────────────────────────────────────
+
+  javascript_weekly:
+    enabled: true
+    type: rss
+    url: "https://javascriptweekly.com/rss/1a1ede"
+    description: "JavaScript Weekly — Newsletter hebdo JS"
+
+  tldr_tech:
+    enabled: true
+    type: rss
+    url: "https://tldr.tech/api/rss/tech"
+    description: "TLDR Tech — Résumés courts actualité tech"
+
+  html5_weekly:
+    enabled: true
+    type: rss
+    url: "https://frontendfoc.us/rss/1a1ede"
+    description: "Frontend Focus (ex HTML5 Weekly) — Frontend avancé"
+
+  # ─── AI / Data Science ────────────────────────────────────────────────────
+
+  huggingface_blog:
+    enabled: true
+    type: rss
+    url: "https://huggingface.co/blog/feed.xml"
+    description: "Hugging Face Blog — Nouveaux modèles et outils AI"
+
+  openai_blog:
+    enabled: true
+    type: rss
+    url: "https://openai.com/blog/rss.xml"
+    description: "OpenAI Blog — Annonces officielles OpenAI"
+
+  kaggle_blog:
+    enabled: true
+    type: rss
+    url: "https://medium.com/feed/kaggle-blog"
+    description: "Kaggle Blog — Data science, compétitions, outils"
+
+  # ─── Stack Overflow ────────────────────────────────────────────────────────
+
+  stackoverflow_questions:
+    enabled: true
+    type: rss
+    url: "https://stackoverflow.com/feeds/tag?tagnames=python+javascript+devops&sort=newest"
+    description: "Stack Overflow — Questions chaudes du moment (python, js, devops)"
+
+  # ─── Sources désactivées — activer si besoin ───────────────────────────────
+
+  css_tricks:
+    enabled: false
+    type: rss
+    url: "https://css-tricks.com/feed/"
+    description: "CSS-Tricks — Frontend avancé"
+
+  smashing_magazine:
+    enabled: false
+    type: rss
+    url: "https://www.smashingmagazine.com/feed/"
+    description: "Smashing Magazine — Design + Dev"
+
+  # Ajoute tes sources personnalisées ici :
+  # custom_source_1:
+  #   enabled: true
+  #   type: rss
+  #   url: "https://ton-blog.com/feed"
+  #   description: "Description de ta source"
+
+# Filtres globaux
+filters:
+  exclude_keywords:
+    - "sponsored"
+    - "promoted"
+    - "partner content"
+    - "advertisement"
+  min_score_hn: 50       # Score minimum HN pour inclure un article
+  max_age_days: 7        # Ignorer les articles de plus de 7 jours
+
+# Gemini AI config
+ai:
+  model: "gemini-1.5-flash"    # Gratuit, rapide
+  max_tokens: 2048
+  temperature: 0.3              # Précis, pas créatif
+
+# Email config
+email:
+  recipient: ""                 # Ton email (ou via SMTP_RECIPIENT secret)
+  subject: "📡 Veille Tech — Semaine du {date}"
+  send_on_failure: true         # Alerter si le script échoue
+
+# Output
+output:
+  markdown_dir: "veille/rapports/tech"
+  commit_message: "veille: rapport tech {date}"
