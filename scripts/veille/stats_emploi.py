@@ -26,7 +26,7 @@ from collections import Counter
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-import google.generativeai as genai
+import google.genai as genai
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -259,9 +259,6 @@ def analyze_with_gemini(
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set.")
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-
     skills_text = "\n".join([
         f"- {skill}: {count} offres"
         for skill, count in list(skills_france.items())[:15]
@@ -319,7 +316,11 @@ RÈGLES:
 - Adapté à un étudiant junior, pas un senior
 """
 
-    response = model.generate_content(prompt)
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt,
+    )
     return response.text
 
 # ─── Report Builder ───────────────────────────────────────────────────────────

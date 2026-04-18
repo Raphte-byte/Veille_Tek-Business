@@ -23,7 +23,7 @@ from pathlib import Path
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-import google.generativeai as genai
+import google.genai as genai
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -328,9 +328,6 @@ def summarize_with_gemini(articles: list[dict], trending_repos: list[dict], redd
     if not api_key:
         raise ValueError("GEMINI_API_KEY not set. Add it as GitHub Secret.")
 
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
-
     articles_text = "\n".join([
         f"- [{a['source']}] {a['title']} | {a.get('url', '')}"
         for a in articles[:40]
@@ -412,7 +409,11 @@ RÈGLES:
 - Reddit = signal de terrain, pas de drama inutile
 """
 
-    response = model.generate_content(prompt)
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt,
+    )
     return response.text
 
 # ─── Report Builder ───────────────────────────────────────────────────────────

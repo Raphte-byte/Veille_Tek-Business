@@ -16,6 +16,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
   veille-tech:
     name: "📡 VeilleTech — Tendances Tech"
