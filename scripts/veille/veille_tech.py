@@ -10,6 +10,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 import json
 import yaml
@@ -320,8 +321,8 @@ def fetch_youtube(config: dict) -> list[dict]:
 
 # ─── AI Summary ───────────────────────────────────────────────────────────────
 
-def summarize_with_gemini(articles: list[dict], trending_repos: list[dict], reddit_posts: list[dict], youtube_videos: list[dict]) -> str:
-    """Génère un résumé structuré avec Groq AI."""
+def summarize_with_gemini(articles: list[dict], trending_repos: list[dict], reddit_posts: list[dict], youtube_videos: list[dict]) -> dict:
+    """Génère un résumé structuré JSON avec Groq AI, classé par thème tech."""
     log.info("Generating summary with Groq AI...")
 
     api_key = os.environ.get("GROQ_API_KEY")
@@ -338,99 +339,262 @@ def summarize_with_gemini(articles: list[dict], trending_repos: list[dict], redd
         for r in trending_repos[:10]
     ])
 
-    reddit_text = "\n".join([
-        f"- [r/{p['subreddit']}] {p['title']} (score: {p['score']}, {p['num_comments']} comments) | {p['url']}"
-        for p in reddit_posts[:15]
-    ]) if reddit_posts else "(aucun post Reddit cette semaine)"
+    prompt = f"""Tu es un expert en veille technologique pour un étudiant développeur français cherchant une alternance.
 
-    youtube_text = "\n".join([
-        f"- [{v['channel']}] {v['title']} | {v['url']}"
-        for v in youtube_videos[:8]
-    ]) if youtube_videos else "(YouTube non configuré — ajouter YOUTUBE_API_KEY)"
+Analyse ces articles et repos GitHub de la semaine. Sélectionne les 10 meilleurs articles maximum, classe-les par thème, et génère un rapport structuré.
 
-    prompt = f"""
-Tu es un expert en veille technologique qui crée des résumés hebdomadaires pour un étudiant développeur français cherchant une alternance.
-
-Voici les articles et repos de cette semaine:
-
-ARTICLES (HN, Dev.to, Medium, RSS):
+ARTICLES (HackerNews, Dev.to, Medium, RSS):
 {articles_text}
 
 REPOS GITHUB TRENDING:
 {repos_text}
 
-REDDIT — Ce que les devs discutent vraiment:
-{reddit_text}
+Retourne UNIQUEMENT le JSON suivant, sans aucun texte avant ou après, sans bloc de code markdown :
 
-YOUTUBE — Vidéos tech de la semaine:
-{youtube_text}
-
-Génère un rapport de veille en Français au format Markdown STRICT suivant:
-
-## 🔥 Must Read (2-3 articles max, ceux qui changent vraiment quelque chose)
-- **[Titre]** — {{source}}
-  > Pourquoi c'est important en 1 phrase simple et pédagogique.
-  🔗 [Lire](url)
-
-## 📌 Intéressant (3-5 articles)
-- **[Titre]** — {{source}}
-  > Ce que tu peux en tirer en tant qu'étudiant dev.
-  🔗 [Lire](url)
-
-## 💬 Reddit — La Réalité du Terrain
-(2-3 posts Reddit qui montrent ce que les vrais devs vivent/pensent cette semaine)
-- **[Titre]** — r/{{subreddit}}
-  > Ce que le débat révèle sur l'industrie.
-  🔗 [Voir](url)
-
-## 📺 YouTube — À Regarder Cette Semaine
-(2-3 vidéos max, celles qui valent vraiment le temps)
-- **[Titre]** — {{channel}}
-  > En 1 phrase: ce que tu vas apprendre ou comprendre.
-  🔗 [Regarder](url)
-
-## 🚀 Outils & Repos Trending
-| Repo | Language | Description | Lien |
-|------|----------|-------------|------|
-(top 5 repos)
-
-## 💡 Tendances de la semaine
-- **Ce qui monte:** ...
-- **Ce qui descend:** ...
-- **Tech émergente à surveiller:** ...
-- **Signal Reddit (ce que la communauté ressent):** ...
+{{
+  "themes": [
+    {{
+      "nom": "IA & Machine Learning",
+      "emoji": "🤖",
+      "articles": [
+        {{
+          "titre": "Titre exact de l'article",
+          "source": "Nom de la source",
+          "url": "URL exacte de l'article",
+          "quoi": "En 1-2 phrases concrètes: ce que c'est ou ce que ça fait.",
+          "impact": "Impact potentiel sur les projets, la carrière ou les outils.",
+          "action": "Ce qu'on peut faire concrètement: tester, intégrer, comparer."
+        }}
+      ]
+    }}
+  ],
+  "repos": [
+    {{
+      "nom": "owner/repo",
+      "langage": "Python",
+      "description": "Description courte",
+      "url": "https://github.com/..."
+    }}
+  ],
+  "tendances": {{
+    "monte": "Ce qui gagne du terrain cette semaine",
+    "descend": "Ce qui perd de la vitesse",
+    "surveiller": "Une techno ou tendance à garder en radar"
+  }}
+}}
 
 RÈGLES:
-- Français obligatoire, mais garde les noms d'outils/libs en anglais
-- Pédagogique: explique les termes techniques simplement
-- Friendly mais efficace: pas de blabla
-- Focus sur ce qui est utile pour un étudiant en dev
-- Pas d'articles sponsorisés ou de hype sans substance
-- Reddit = signal de terrain, pas de drama inutile
-"""
+- Thèmes disponibles: "IA & Machine Learning" (emoji 🤖), "Outils & DevOps" (emoji 🛠️), "Web & Frontend" (emoji 🌐), "Backend & Architecture" (emoji 📦)
+- Utilise seulement les thèmes pertinents pour les articles collectés
+- 10 articles maximum au total, répartis entre les thèmes présents
+- Résumés en français, noms d'outils et libs en anglais
+- URLs exactes issues de l'input, sans les modifier
+- Le champ "action" peut être omis si rien de concret à faire
+- 5 repos maximum dans "repos"
+- JSON valide uniquement, sans virgule finale"""
 
     client = Groq(api_key=api_key)
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
+        temperature=0.4,
         max_tokens=4096,
     )
-    return response.choices[0].message.content
+
+    content = response.choices[0].message.content.strip()
+    content = re.sub(r'^```(?:json)?\s*\n?', '', content)
+    content = re.sub(r'\n?```\s*$', '', content)
+
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError as e:
+        log.warning(f"JSON invalide depuis Groq, fallback. Erreur: {e}")
+        return {
+            "themes": [{"nom": "Veille Tech", "emoji": "📡", "articles": [
+                {"titre": "Rapport textuel (JSON invalide)", "source": "Groq", "url": "#",
+                 "quoi": content[:600], "impact": "", "action": ""}
+            ]}],
+            "repos": [],
+            "tendances": {},
+        }
 
 # ─── Report Builder ───────────────────────────────────────────────────────────
 
-def build_report(ai_summary: str) -> str:
-    """Construit le rapport Markdown complet."""
+def build_markdown_from_data(data: dict) -> str:
+    """Construit le corps Markdown depuis la structure JSON Groq."""
+    lines = []
+    for theme in data.get("themes", []):
+        emoji = theme.get("emoji", "📌")
+        nom = theme.get("nom", "Divers")
+        lines.append(f"## {emoji} {nom}\n")
+        for art in theme.get("articles", []):
+            titre = art.get("titre", "Sans titre")
+            url = art.get("url", "#")
+            source = art.get("source", "")
+            quoi = art.get("quoi", "")
+            impact = art.get("impact", "")
+            action = art.get("action", "")
+            lines.append(f"### [{titre}]({url})")
+            lines.append(f"*{source}*\n")
+            if quoi:
+                lines.append(f"📌 **Quoi :** {quoi}")
+            if impact:
+                lines.append(f"⚡ **Impact :** {impact}")
+            if action:
+                lines.append(f"🎯 **Action :** {action}")
+            lines.append(f"\n→ [Lire l'article]({url})\n")
+            lines.append("---\n")
+
+    repos = data.get("repos", [])
+    if repos:
+        lines.append("## 🚀 GitHub Trending\n")
+        lines.append("| Repo | Langage | Description |")
+        lines.append("|------|---------|-------------|")
+        for r in repos[:5]:
+            nom = r.get("nom", "")
+            url = r.get("url", "#")
+            lang = r.get("langage", "N/A")
+            desc = str(r.get("description", ""))[:80]
+            lines.append(f"| [{nom}]({url}) | {lang} | {desc} |")
+        lines.append("")
+
+    t = data.get("tendances", {})
+    if t:
+        lines.append("## 💡 Tendances\n")
+        if t.get("monte"):
+            lines.append(f"📈 **Ce qui monte :** {t['monte']}")
+        if t.get("descend"):
+            lines.append(f"📉 **Ce qui descend :** {t['descend']}")
+        if t.get("surveiller"):
+            lines.append(f"🔭 **À surveiller :** {t['surveiller']}")
+
+    return "\n".join(lines)
+
+
+def build_html_email(data: dict, week: str) -> str:
+    """Construit l'email HTML Gmail-compatible depuis la structure JSON Groq."""
+    THEME_COLORS = {
+        "IA & Machine Learning": "#6366f1",
+        "Outils & DevOps": "#f59e0b",
+        "Web & Frontend": "#10b981",
+        "Backend & Architecture": "#3b82f6",
+    }
+    DEFAULT_COLOR = "#6b7280"
+
+    def esc(s: str) -> str:
+        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+    def article_card(art: dict) -> str:
+        titre = esc(art.get("titre", "Sans titre"))
+        url = esc(art.get("url", "#"))
+        source = esc(art.get("source", ""))
+        quoi = esc(art.get("quoi", ""))
+        impact_raw = art.get("impact", "")
+        action_raw = art.get("action", "")
+        impact_html = (
+            f'<p style="margin:4px 0;font-size:13px;color:#555;line-height:1.5;">'
+            f'⚡ <strong>Impact :</strong> {esc(impact_raw)}</p>'
+        ) if impact_raw else ""
+        action_html = (
+            f'<p style="margin:4px 0;font-size:13px;color:#555;line-height:1.5;">'
+            f'🎯 <strong>Action :</strong> {esc(action_raw)}</p>'
+        ) if action_raw else ""
+        return (
+            f'<div style="margin-bottom:16px;padding:14px;background:#f7f8fc;border-radius:6px;border-left:3px solid #e5e7eb;">'
+            f'<h3 style="margin:0 0 8px;font-size:15px;font-weight:700;line-height:1.3;">'
+            f'<a href="{url}" style="color:#0d1117;text-decoration:none;">{titre}</a></h3>'
+            f'<p style="margin:4px 0;font-size:13px;color:#333;line-height:1.5;">📌 <strong>Quoi :</strong> {quoi}</p>'
+            f'{impact_html}{action_html}'
+            f'<p style="margin:10px 0 0;font-size:12px;">'
+            f'<a href="{url}" style="color:#6366f1;text-decoration:none;font-weight:600;">→ Lire l\'article ↗</a>'
+            f'&nbsp;&nbsp;<span style="color:#ccc;">|</span>&nbsp;&nbsp;'
+            f'<span style="color:#aaa;">{source}</span></p>'
+            f'</div>'
+        )
+
+    themes_rows = ""
+    for theme in data.get("themes", []):
+        nom = theme.get("nom", "Divers")
+        emoji = theme.get("emoji", "📌")
+        color = THEME_COLORS.get(nom, DEFAULT_COLOR)
+        cards = "".join(article_card(a) for a in theme.get("articles", []))
+        themes_rows += (
+            f'<tr><td style="background:#fff;padding:22px 25px;border-bottom:2px solid #f0f0f0;">'
+            f'<h2 style="color:{color};margin:0 0 16px;font-size:17px;font-weight:700;'
+            f'border-left:4px solid {color};padding-left:10px;">{emoji} {esc(nom)}</h2>'
+            f'{cards}</td></tr>'
+        )
+
+    repo_rows = ""
+    for r in data.get("repos", [])[:5]:
+        nom = esc(r.get("nom", ""))
+        url = esc(r.get("url", "#"))
+        lang = esc(r.get("langage", "N/A"))
+        desc = esc(str(r.get("description", ""))[:90])
+        repo_rows += (
+            f'<tr style="border-bottom:1px solid #f0f0f0;">'
+            f'<td style="padding:8px 6px;font-size:13px;">'
+            f'<a href="{url}" style="color:#0d1117;text-decoration:none;font-weight:600;">{nom}</a></td>'
+            f'<td style="padding:8px 6px;font-size:12px;color:#666;">{lang}</td>'
+            f'<td style="padding:8px 6px;font-size:12px;color:#555;">{desc}</td></tr>'
+        )
+    repos_row = ""
+    if repo_rows:
+        repos_row = (
+            f'<tr><td style="background:#fff;padding:22px 25px;border-bottom:2px solid #f0f0f0;">'
+            f'<h2 style="color:#333;margin:0 0 14px;font-size:17px;font-weight:700;">🚀 GitHub Trending</h2>'
+            f'<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;">'
+            f'<tr style="background:#f5f5f5;">'
+            f'<th style="padding:8px 6px;text-align:left;color:#666;font-weight:600;">Repo</th>'
+            f'<th style="padding:8px 6px;text-align:left;color:#666;font-weight:600;">Lang.</th>'
+            f'<th style="padding:8px 6px;text-align:left;color:#666;font-weight:600;">Description</th>'
+            f'</tr>{repo_rows}</table></td></tr>'
+        )
+
+    t = data.get("tendances", {})
+    tendances_row = ""
+    if t:
+        tendances_row = (
+            f'<tr><td style="background:#fff;padding:22px 25px;border-bottom:2px solid #f0f0f0;">'
+            f'<h2 style="color:#333;margin:0 0 14px;font-size:17px;font-weight:700;">💡 Tendances de la semaine</h2>'
+            + (f'<p style="margin:6px 0;font-size:13px;color:#333;line-height:1.5;">📈 <strong>Ce qui monte :</strong> {esc(t["monte"])}</p>' if t.get("monte") else "")
+            + (f'<p style="margin:6px 0;font-size:13px;color:#333;line-height:1.5;">📉 <strong>Ce qui descend :</strong> {esc(t["descend"])}</p>' if t.get("descend") else "")
+            + (f'<p style="margin:6px 0;font-size:13px;color:#333;line-height:1.5;">🔭 <strong>À surveiller :</strong> {esc(t["surveiller"])}</p>' if t.get("surveiller") else "")
+            + f'</td></tr>'
+        )
+
+    return (
+        f'<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        f'<meta name="viewport" content="width=device-width,initial-scale=1.0"></head>'
+        f'<body style="margin:0;padding:0;background:#f0f2f5;font-family:-apple-system,Arial,Helvetica,sans-serif;">'
+        f'<table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:24px 0;">'
+        f'<tr><td align="center">'
+        f'<table width="600" cellpadding="0" cellspacing="0" '
+        f'style="max-width:600px;width:100%;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">'
+        f'<tr><td style="background:#0d1117;padding:28px 25px;text-align:center;">'
+        f'<h1 style="color:#fff;margin:0;font-size:26px;font-weight:800;letter-spacing:-0.5px;">📡 Veille Tech</h1>'
+        f'<p style="color:#8b949e;margin:8px 0 0;font-size:14px;">{esc(week)}</p>'
+        f'</td></tr>'
+        f'{themes_rows}{repos_row}{tendances_row}'
+        f'<tr><td style="background:#0d1117;padding:18px 25px;text-align:center;">'
+        f'<p style="color:#8b949e;margin:0;font-size:11px;">BYAN Veille-Tech · Agent automatique · Raphte\'s Tech Radar</p>'
+        f'</td></tr>'
+        f'</table></td></tr></table></body></html>'
+    )
+
+
+def build_report(data: dict) -> str:
+    """Construit le rapport Markdown complet depuis la structure JSON."""
     today = date_label()
     week = week_label()
+    body = build_markdown_from_data(data)
     return f"""# 📡 Veille Tech — Semaine du {week}
 
 *Généré le {today} par VEILLE-TECH*
 
 ---
 
-{ai_summary}
+{body}
 
 ---
 
@@ -448,8 +612,8 @@ def save_report(content: str) -> Path:
 
 # ─── Email ────────────────────────────────────────────────────────────────────
 
-def send_email(subject: str, body_md: str) -> None:
-    """Envoie le rapport par email via SMTP."""
+def send_email(subject: str, body_plain: str, body_html: str = None) -> None:
+    """Envoie le rapport par email via SMTP (texte + HTML)."""
     smtp_user = os.environ.get("SMTP_USER")
     smtp_pass = os.environ.get("SMTP_PASSWORD")
     recipient = os.environ.get("SMTP_RECIPIENT", smtp_user)
@@ -464,7 +628,9 @@ def send_email(subject: str, body_md: str) -> None:
     msg["Subject"] = subject
     msg["From"] = smtp_user
     msg["To"] = recipient
-    msg.attach(MIMEText(body_md, "plain", "utf-8"))
+    msg.attach(MIMEText(body_plain, "plain", "utf-8"))
+    if body_html:
+        msg.attach(MIMEText(body_html, "html", "utf-8"))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(smtp_user, smtp_pass)
@@ -530,18 +696,30 @@ def main():
 
     # 2. AI Summary
     if args.no_ai:
-        ai_summary = f"## Debug Mode\n{len(all_articles)} articles, {len(trending_repos)} repos, {len(reddit_posts)} posts Reddit, {len(youtube_videos)} vidéos YouTube."
+        ai_data = {
+            "themes": [{"nom": "Debug", "emoji": "🐛", "articles": [
+                {"titre": f"{len(all_articles)} articles collectés", "source": "Debug", "url": "#",
+                 "quoi": "Mode debug activé — AI désactivée.",
+                 "impact": f"{len(trending_repos)} repos trending, {len(reddit_posts)} posts Reddit.",
+                 "action": ""}
+            ]}],
+            "repos": [{"nom": r.get("title", ""), "langage": r.get("language", "N/A"),
+                       "description": r.get("description", ""), "url": r.get("url", "#")}
+                      for r in trending_repos[:5]],
+            "tendances": {"monte": "N/A (mode debug)", "descend": "N/A", "surveiller": "N/A"},
+        }
     else:
-        ai_summary = summarize_with_gemini(all_articles, trending_repos, reddit_posts, youtube_videos)
+        ai_data = summarize_with_gemini(all_articles, trending_repos, reddit_posts, youtube_videos)
 
     # 3. Build & Save Report
-    report = build_report(ai_summary)
+    report = build_report(ai_data)
     filepath = save_report(report)
 
     # 4. Email
     if not args.dry_run:
         subject = f"📡 Veille Tech — Semaine du {week_label()}"
-        send_email(subject, report)
+        html_email = build_html_email(ai_data, week_label())
+        send_email(subject, report, html_email)
 
     # 5. Erreurs non-bloquantes
     if errors:
