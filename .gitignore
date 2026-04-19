@@ -27,10 +27,8 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Generated reports (keep structure, ignore content)
-veille/rapports/tech/*.md
-veille/rapports/emploi/*.md
-veille/rapports/*/_history.json
+# Generated reports — committed by GitHub Actions bot
+# (local dev: use git add -f if needed)
 
 # Logs
 *.log

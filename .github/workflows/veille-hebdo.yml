@@ -58,7 +58,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add veille/rapports/tech/
+          git add -f veille/rapports/tech/
           git diff --staged --quiet || git commit -m "📡 Rapport VeilleTech $(date +%Y-%m-%d)"
           git push
 
@@ -106,7 +106,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add veille/rapports/emploi/
+          git add -f veille/rapports/emploi/
           git diff --staged --quiet || git commit -m "📊 Rapport StatsEmploi $(date +%Y-%m-%d)"
           git push
 

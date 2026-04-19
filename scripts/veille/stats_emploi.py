@@ -562,15 +562,21 @@ def build_report(
     week = (datetime.date.today() - datetime.timedelta(days=datetime.date.today().weekday())).isoformat()
 
     # Tableau skills France
-    skills_table = "| Rank | Skill | Offres | Tendance |\n|------|-------|--------|----------|\n"
-    for i, (skill, count) in enumerate(list(skills_france.items())[:10], 1):
-        trend = calculate_trend(skill, count, previous_stats)
-        skills_table += f"| {i} | {skill} | {count} | {trend} |\n"
+    if skills_france:
+        skills_table = "| Rank | Skill | Offres | Tendance |\n|------|-------|--------|----------|\n"
+        for i, (skill, count) in enumerate(list(skills_france.items())[:10], 1):
+            trend = calculate_trend(skill, count, previous_stats)
+            skills_table += f"| {i} | {skill} | {count} | {trend} |\n"
+    else:
+        skills_table = "⚠️ *Aucune donnée disponible — Indeed bloqué depuis CI. Configure France Travail ou Adzuna dans les secrets GitHub.*"
 
     # Tableau combos
-    combos_table = "| Combo | Offres |\n|-------|--------|\n"
-    for combo, count in combos[:5]:
-        combos_table += f"| {combo[0]} + {combo[1]} | {count} |\n"
+    if combos:
+        combos_table = "| Combo | Offres |\n|-------|--------|\n"
+        for combo, count in combos[:5]:
+            combos_table += f"| {combo[0]} + {combo[1]} | {count} |\n"
+    else:
+        combos_table = "⚠️ *Pas assez de données pour calculer les combos.*"
 
     # Offres Nice
     nice_section = ""
