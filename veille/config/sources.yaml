@@ -178,11 +178,12 @@ filters:
   min_score_hn: 50       # Score minimum HN pour inclure un article
   max_age_days: 7        # Ignorer les articles de plus de 7 jours
 
-# Gemini AI config
+# Groq AI config (remplace Gemini depuis migration 2026-04)
 ai:
-  model: "gemini-1.5-flash"    # Gratuit, rapide
+  provider: "groq"
+  model: "llama-3.3-70b-versatile"   # Free tier: 14k req/jour
   max_tokens: 2048
-  temperature: 0.3              # Précis, pas créatif
+  temperature: 0.3                    # Précis, pas créatif
 
 # Email config
 email:
