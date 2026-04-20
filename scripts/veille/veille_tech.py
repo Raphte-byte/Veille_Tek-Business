@@ -583,54 +583,139 @@ def build_html_email(data: dict, week: str) -> str:
     )
 
 
-def build_obsidian_frontmatter(data: dict) -> str:
-    """Génère le frontmatter YAML Obsidian avec tags automatiques depuis les thèmes."""
-    today = date_label()
-    week = week_label()
+THEME_TAG_MAP = {
+    "IA": "IA",
+    "Machine Learning": "machine-learning",
+    "DevOps": "devops",
+    "Web": "web",
+    "Backend": "backend",
+    "Frontend": "frontend",
+    "Sécurité": "securite",
+    "Cloud": "cloud",
+    "Python": "python",
+    "JavaScript": "javascript",
+    "Rust": "rust",
+    "Go": "golang",
+}
 
-    # Tags fixes
-    tags = ["veille", "tech", "automatique"]
+LANG_TAG_MAP = {
+    "Python": "python", "JavaScript": "javascript", "TypeScript": "typescript",
+    "Rust": "rust", "Go": "golang", "Java": "java",
+}
 
-    # Tags dynamiques depuis les thèmes Groq
-    theme_tag_map = {
-        "IA": "IA",
-        "Machine Learning": "machine-learning",
-        "DevOps": "devops",
-        "Web": "web",
-        "Backend": "backend",
-        "Frontend": "frontend",
-        "Sécurité": "securite",
-        "Cloud": "cloud",
-        "Python": "python",
-        "JavaScript": "javascript",
-        "Rust": "rust",
-        "Go": "golang",
-    }
-    for theme in data.get("themes", []):
+# Mots-clés dans nom/description d'un repo → thème cible (substring, lowercase)
+REPO_THEME_KEYWORDS = {
+    "IA": ["llm", "gpt", "neural", "ai", "ml", "model", "transformer", "diffusion",
+            "embedding", "langchain", "openai", "anthropic", "inference", "rag"],
+    "Machine Learning": ["sklearn", "pytorch", "tensorflow", "training", "dataset",
+                          "fine-tun", "huggingface", "gradient", "classification"],
+    "DevOps": ["docker", "kubernetes", "k8s", "ci", "cd", "deploy", "pipeline",
+                "terraform", "ansible", "helm", "monitoring", "observabilit", "grafana"],
+    "Web": ["react", "vue", "svelte", "next", "nuxt", "css", "html", "frontend",
+             "tailwind", "webpack", "vite", "browser", "wasm"],
+    "Backend": ["api", "rest", "graphql", "grpc", "server", "database", "postgres",
+                 "redis", "fastapi", "express", "django", "rust", "go", "microservice"],
+    "Sécurité": ["security", "auth", "crypto", "pentest", "cve", "exploit", "firewall",
+                  "tls", "ssl", "vulnerabilit"],
+    "Cloud": ["aws", "gcp", "azure", "serverless", "lambda", "cloud", "s3", "bucket"],
+}
+
+# Langages → thème prioritaire si pas de match par keyword
+LANG_THEME_MAP = {
+    "Python": "IA",
+    "TypeScript": "Web",
+    "JavaScript": "Web",
+    "Go": "DevOps",
+    "Rust": "Backend",
+    "Java": "Backend",
+    "C": "Backend",
+    "C++": "Backend",
+    "Shell": "DevOps",
+    "Dockerfile": "DevOps",
+}
+
+
+def assign_repos_to_themes(repos: list, themes: list) -> dict:
+    """Distribue les repos GitHub Trending dans les thèmes correspondants.
+
+    Retourne un dict {theme_nom: [repo, ...]} + "_orphans" pour les non-matchés.
+    Utilise des mots entiers (\\b) pour éviter les faux positifs.
+    """
+    import re as _re
+
+    theme_names = [t.get("nom", "") for t in themes]
+    result = {nom: [] for nom in theme_names}
+    result["_orphans"] = []
+
+    for repo in repos:
+        lang = repo.get("langage", "")
+        searchable = (
+            repo.get("nom", "") + " " + repo.get("description", "")
+        ).lower()
+
+        matched = None
+
+        # 1. Match par mots entiers dans nom/description
+        for keyword_theme, kws in REPO_THEME_KEYWORDS.items():
+            if any(_re.search(r"\b" + _re.escape(kw) + r"\b", searchable) for kw in kws):
+                for nom in theme_names:
+                    if keyword_theme.lower() in nom.lower():
+                        matched = nom
+                        break
+                if matched:
+                    break
+
+        # 2. Fallback : match par langage
+        if not matched and lang in LANG_THEME_MAP:
+            lang_target = LANG_THEME_MAP[lang]
+            for nom in theme_names:
+                if lang_target.lower() in nom.lower():
+                    matched = nom
+                    break
+
+        if matched:
+            result[matched].append(repo)
+        else:
+            result["_orphans"].append(repo)
+
+    return result
+
+
+def slugify_theme(nom: str) -> str:
+    """Convertit un nom de thème en slug de fichier."""
+    import unicodedata
+    slug = unicodedata.normalize("NFD", nom.lower())
+    slug = "".join(c for c in slug if unicodedata.category(c) != "Mn")
+    slug = re.sub(r"[^a-z0-9]+", "-", slug).strip("-")
+    return slug or "divers"
+
+
+def _collect_tags(themes: list, repos: list, extra: list = None) -> list:
+    tags = ["veille", "tech", "automatique"] + (extra or [])
+    for theme in themes:
         nom = theme.get("nom", "")
-        for keyword, tag in theme_tag_map.items():
+        for keyword, tag in THEME_TAG_MAP.items():
             if keyword.lower() in nom.lower() and tag not in tags:
                 tags.append(tag)
-
-    # Tags depuis les langages GitHub Trending
-    lang_tag_map = {
-        "Python": "python", "JavaScript": "javascript", "TypeScript": "typescript",
-        "Rust": "rust", "Go": "golang", "Java": "java",
-    }
-    for repo in data.get("repos", []):
+    for repo in repos:
         lang = repo.get("langage", "")
-        if lang in lang_tag_map:
-            tag = lang_tag_map[lang]
-            if tag not in tags:
-                tags.append(tag)
+        tag = LANG_TAG_MAP.get(lang)
+        if tag and tag not in tags:
+            tags.append(tag)
+    return tags
 
+
+def build_obsidian_frontmatter(data: dict) -> str:
+    """Génère le frontmatter YAML pour le fichier index de la semaine."""
+    today = date_label()
+    week = week_label()
+    tags = _collect_tags(data.get("themes", []), data.get("repos", []))
     tags_yaml = "\n".join(f"  - {t}" for t in tags)
-
     return f"""---
 title: "Veille Tech — {week}"
 date: {today}
 semaine: "{week}"
-type: veille
+type: veille-index
 tags:
 {tags_yaml}
 source: BYAN-VeilleTech
@@ -638,12 +723,120 @@ source: BYAN-VeilleTech
 """
 
 
-def build_report(data: dict) -> str:
-    """Construit le rapport Markdown complet depuis la structure JSON."""
+def build_theme_frontmatter(theme: dict, today: str, week: str, repos: list = None) -> str:
+    """Génère le frontmatter YAML pour un fichier thème."""
+    nom = theme.get("nom", "Divers")
+    emoji = theme.get("emoji", "📌")
+    tags = ["veille", "tech"]
+    for keyword, tag in THEME_TAG_MAP.items():
+        if keyword.lower() in nom.lower() and tag not in tags:
+            tags.append(tag)
+    # Tag github si des repos trending ont été matchés sur ce thème
+    if repos:
+        tags.append("github")
+        for repo in repos:
+            lang = repo.get("langage", "")
+            tag = LANG_TAG_MAP.get(lang)
+            if tag and tag not in tags:
+                tags.append(tag)
+    tags_yaml = "\n".join(f"  - {t}" for t in tags)
+    return f"""---
+title: "{emoji} {nom} — {week}"
+date: {today}
+semaine: "{week}"
+type: veille-theme
+theme: "{nom}"
+tags:
+{tags_yaml}
+source: BYAN-VeilleTech
+---
+"""
+
+
+def build_theme_file(theme: dict, today: str, week: str, repos: list = None) -> str:
+    """Construit le fichier Markdown pour un thème, avec repos GitHub matchés."""
+    nom = theme.get("nom", "Divers")
+    emoji = theme.get("emoji", "📌")
+    repos = repos or []
+    frontmatter = build_theme_frontmatter(theme, today, week, repos)
+    lines = [frontmatter, f"# {emoji} {nom}\n", f"*Semaine du {week} — Généré par VEILLE-TECH*\n", "---\n"]
+
+    for art in theme.get("articles", []):
+        titre = art.get("titre", "Sans titre")
+        url = art.get("url", "#")
+        source = art.get("source", "")
+        quoi = art.get("quoi", "")
+        impact = art.get("impact", "")
+        action = art.get("action", "")
+        lines.append(f"### [{titre}]({url})")
+        lines.append(f"*{source}*\n")
+        if quoi:
+            lines.append(f"📌 **Quoi :** {quoi}")
+        if impact:
+            lines.append(f"⚡ **Impact :** {impact}")
+        if action:
+            lines.append(f"🎯 **Action :** {action}")
+        lines.append(f"\n→ [Lire l'article]({url})\n")
+        lines.append("---\n")
+
+    # Section GitHub Trending spécifique à ce thème
+    if repos:
+        lines.append("## 🚀 GitHub Trending — Ce thème\n")
+        lines.append("| Repo | Langage | Description |")
+        lines.append("|------|---------|-------------|")
+        for r in repos:
+            nom_r = r.get("nom", "")
+            url_r = r.get("url", "#")
+            lang = r.get("langage", "N/A")
+            desc = str(r.get("description", ""))[:80]
+            lines.append(f"| [{nom_r}]({url_r}) | {lang} | {desc} |")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def build_report(data: dict, orphan_repos: list = None) -> str:
+    """Construit le fichier index Markdown avec liens vers fichiers thème."""
     today = date_label()
     week = week_label()
     frontmatter = build_obsidian_frontmatter(data)
-    body = build_markdown_from_data(data)
+    orphan_repos = orphan_repos or []
+
+    theme_links = []
+    for theme in data.get("themes", []):
+        nom = theme.get("nom", "Divers")
+        emoji = theme.get("emoji", "📌")
+        slug = slugify_theme(nom)
+        theme_links.append(f"- [[themes/{today}-{slug}|{emoji} {nom}]]")
+    themes_section = "\n".join(theme_links)
+
+    # Dans l'index : uniquement les repos sans thème correspondant
+    trending_lines = []
+    if orphan_repos:
+        trending_lines += ["## 🚀 GitHub Trending — Autres\n",
+                           "| Repo | Langage | Description |",
+                           "|------|---------|-------------|"]
+        for r in orphan_repos:
+            nom_r = r.get("nom", "")
+            url_r = r.get("url", "#")
+            lang = r.get("langage", "N/A")
+            desc = str(r.get("description", ""))[:80]
+            trending_lines.append(f"| [{nom_r}]({url_r}) | {lang} | {desc} |")
+        trending_lines.append("")
+
+    t = data.get("tendances", {})
+    tendances_lines = []
+    if t:
+        tendances_lines.append("## 💡 Tendances de la semaine\n")
+        if t.get("monte"):
+            tendances_lines.append(f"📈 **Ce qui monte :** {t['monte']}")
+        if t.get("descend"):
+            tendances_lines.append(f"📉 **Ce qui descend :** {t['descend']}")
+        if t.get("surveiller"):
+            tendances_lines.append(f"🔭 **À surveiller :** {t['surveiller']}")
+
+    trailing = "\n".join(trending_lines + tendances_lines)
+
     return f"""{frontmatter}
 # 📡 Veille Tech — Semaine du {week}
 
@@ -651,7 +844,13 @@ def build_report(data: dict) -> str:
 
 ---
 
-{body}
+## 📂 Thèmes de la semaine
+
+{themes_section}
+
+---
+
+{trailing}
 
 ---
 
@@ -659,13 +858,38 @@ def build_report(data: dict) -> str:
 *Agent BYAN VEILLE-TECH — Raphte's Tech Radar*
 """
 
-def save_report(content: str) -> Path:
-    """Sauvegarde le rapport en Markdown."""
+
+def save_reports(data: dict) -> list:
+    """Sauvegarde le rapport index + 1 fichier par thème (avec repos GitHub distribués)."""
+    today = date_label()
+    week = week_label()
     RAPPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    filepath = RAPPORTS_DIR / f"{date_label()}.md"
-    filepath.write_text(content, encoding="utf-8")
-    log.info(f"Rapport sauvegardé: {filepath}")
-    return filepath
+    themes_dir = RAPPORTS_DIR / "themes"
+    themes_dir.mkdir(exist_ok=True)
+
+    # Distribuer les repos GitHub Trending dans les thèmes
+    repo_map = assign_repos_to_themes(data.get("repos", []), data.get("themes", []))
+    orphans = repo_map.pop("_orphans", [])
+
+    saved = []
+
+    # Index (avec repos orphelins seulement)
+    index_path = RAPPORTS_DIR / f"{today}.md"
+    index_path.write_text(build_report(data, orphans), encoding="utf-8")
+    log.info(f"Index sauvegardé: {index_path}")
+    saved.append(index_path)
+
+    # Fichiers thème (avec leurs repos matchés)
+    for theme in data.get("themes", []):
+        nom = theme.get("nom", "divers")
+        slug = slugify_theme(nom)
+        matched_repos = repo_map.get(nom, [])
+        theme_path = themes_dir / f"{today}-{slug}.md"
+        theme_path.write_text(build_theme_file(theme, today, week, matched_repos), encoding="utf-8")
+        log.info(f"Thème sauvegardé: {theme_path} ({len(matched_repos)} repos GitHub)")
+        saved.append(theme_path)
+
+    return saved
 
 # ─── Email ────────────────────────────────────────────────────────────────────
 
@@ -768,9 +992,10 @@ def main():
     else:
         ai_data = summarize_with_gemini(all_articles, trending_repos, reddit_posts, youtube_videos)
 
-    # 3. Build & Save Report
-    report = build_report(ai_data)
-    filepath = save_report(report)
+    # 3. Build & Save Reports (index + 1 par thème)
+    filepaths = save_reports(ai_data)
+    filepath = filepaths[0]  # index = premier fichier
+    report = filepath.read_text(encoding="utf-8")
 
     # 4. Email
     if not args.dry_run:
