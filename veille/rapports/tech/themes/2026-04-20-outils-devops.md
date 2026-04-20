@@ -8,8 +8,6 @@ tags:
   - veille
   - tech
   - devops
-  - github
-  - golang
 source: BYAN-VeilleTech
 ---
 
@@ -19,19 +17,24 @@ source: BYAN-VeilleTech
 
 ---
 
-### [Mise à jour GitHub Actions: cache natif amélioré](https://github.blog/actions-cache)
-*GitHub Blog*
+### [GitHub Stacked PRs](https://github.github.com/gh-stack/)
+*HackerNews*
 
-📌 **Quoi :** GitHub Actions supporte maintenant un cache cross-workflow persistant jusqu'à 10GB.
-⚡ **Impact :** Réduction significative des temps de build sur les gros projets Python/Node.
-🎯 **Action :** Mettre à jour veille-hebdo.yml pour utiliser le nouveau cache pip — économiser ~2min/run.
+📌 **Quoi :** GitHub présente Stacked PRs, une nouvelle fonctionnalité pour les pull requests.
+⚡ **Impact :** Impact potentiel sur les projets utilisant GitHub pour la gestion de code.
+🎯 **Action :** Tester les fonctionnalités de Stacked PRs
 
-→ [Lire l'article](https://github.blog/actions-cache)
+→ [Lire l'article](https://github.github.com/gh-stack/)
 
 ---
 
-## 🚀 GitHub Trending — Ce thème
+### [Vitest 2.0 vs Jest: We Migrated 400 Tests and Here's What Actually Changed](https://dev.to/whoffagents/vitest-20-vs-jest-we-migrated-400-tests-and-heres-what-actually-changed-59hh)
+*dev.to*
 
-| Repo | Langage | Description |
-|------|---------|-------------|
-| [kubernetes/kubectl](https://github.com/kubernetes/kubectl) | Go | Kubernetes CLI for cluster deployment and management |
+📌 **Quoi :** Comparaison des performances de Vitest 2.0 et Jest pour les tests unitaires.
+⚡ **Impact :** Impact potentiel sur les projets utilisant Jest ou Vitest pour les tests unitaires.
+🎯 **Action :** Comparer les performances de Vitest 2.0 et Jest pour les tests unitaires
+
+→ [Lire l'article](https://dev.to/whoffagents/vitest-20-vs-jest-we-migrated-400-tests-and-heres-what-actually-changed-59hh)
+
+---

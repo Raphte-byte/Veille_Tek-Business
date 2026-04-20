@@ -20,25 +20,36 @@ source: BYAN-VeilleTech
 
 ---
 
-### [Claude Opus 4.7 — nouvelles capacités NLP](https://news.ycombinator.com/item?id=12345)
+### [Claude Opus 4.7](https://www.anthropic.com/news/claude-opus-4-7)
 *HackerNews*
 
-📌 **Quoi :** Anthropic sort Claude Opus 4.7 avec une amélioration significative du raisonnement et du contexte long (200k tokens).
-⚡ **Impact :** Meilleure qualité de génération de code et compréhension de contextes complexes.
-🎯 **Action :** Évaluer vs GPT-4o sur les tâches de refactoring Python — tester via API.
+📌 **Quoi :** Nouvelle version de Claude avec des améliorations de performances et de sécurité.
+⚡ **Impact :** Impact potentiel sur les projets utilisant Claude pour l'IA et le machine learning.
+🎯 **Action :** Tester les nouvelles fonctionnalités de Claude Opus 4.7
 
-→ [Lire l'article](https://news.ycombinator.com/item?id=12345)
+→ [Lire l'article](https://www.anthropic.com/news/claude-opus-4-7)
 
 ---
 
-### [LangGraph 0.3 — orchestration multi-agents stable](https://dev.to/langchain/langgraph-03)
-*Dev.to*
+### [Codex for almost everything](https://openai.com/index/codex-for-almost-everything/)
+*HackerNews*
 
-📌 **Quoi :** LangGraph sort sa version stable avec support natif des checkpoints et des interruptions de workflow.
-⚡ **Impact :** Pipelines agents plus fiables et débuggables sans patcher les callbacks.
-🎯 **Action :** Intégrer dans BYAN pour remplacer les boucles manuelles agent → agent.
+📌 **Quoi :** OpenAI présente Codex, un modèle de langage pour la génération de code.
+⚡ **Impact :** Impact potentiel sur les projets de développement logiciel avec l'utilisation de Codex.
+🎯 **Action :** Explorer les possibilités de Codex pour la génération de code
 
-→ [Lire l'article](https://dev.to/langchain/langgraph-03)
+→ [Lire l'article](https://openai.com/index/codex-for-almost-everything/)
+
+---
+
+### [Qwen3.6-35B-A3B: Agentic coding power, now open to all](https://qwen.ai/blog?id=qwen3.6-35b-a3b)
+*HackerNews*
+
+📌 **Quoi :** Qwen présente son modèle de langage Qwen3.6-35B-A3B pour la génération de code.
+⚡ **Impact :** Impact potentiel sur les projets de développement logiciel avec l'utilisation de Qwen3.6-35B-A3B.
+🎯 **Action :** Comparer les performances de Qwen3.6-35B-A3B avec d'autres modèles de langage
+
+→ [Lire l'article](https://qwen.ai/blog?id=qwen3.6-35b-a3b)
 
 ---
 
@@ -46,5 +57,5 @@ source: BYAN-VeilleTech
 
 | Repo | Langage | Description |
 |------|---------|-------------|
-| [openai/openai-agents-python](https://github.com/openai/openai-agents-python) | Python | Official Python SDK for OpenAI agents and LLM orchestration |
-| [microsoft/semantic-kernel](https://github.com/microsoft/semantic-kernel) | Python | SDK for integrating AI models and neural memory into apps |
+| [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) | Python | Agent qui grandit avec vous |
+| [lsdefine/GenericAgent](https://github.com/lsdefine/GenericAgent) | Python | Agent qui évolue et grandit |

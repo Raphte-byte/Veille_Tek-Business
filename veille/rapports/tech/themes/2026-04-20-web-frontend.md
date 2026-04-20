@@ -11,6 +11,7 @@ tags:
   - frontend
   - github
   - typescript
+  - javascript
 source: BYAN-VeilleTech
 ---
 
@@ -20,14 +21,14 @@ source: BYAN-VeilleTech
 
 ---
 
-### [React 20 — compiler expérimental](https://react.dev/blog/react-20)
-*React.dev*
+### [30 Best Free Chrome Extensions for Privacy & Security 4](https://dev.to/uncle_drew/30-best-free-chrome-extensions-for-privacy-security-4-7ln)
+*dev.to*
 
-📌 **Quoi :** React 20 introduit un compilateur qui optimise automatiquement les re-renders sans memo().
-⚡ **Impact :** Performances frontend améliorées sans refactoring, bye bye useMemo manual.
-🎯 **Action :** Tester sur le prochain projet Next.js — activer le plugin compiler en preview.
+📌 **Quoi :** Liste des meilleures extensions Chrome gratuites pour la sécurité et la confidentialité.
+⚡ **Impact :** Impact potentiel sur la sécurité et la confidentialité des utilisateurs de Chrome.
+🎯 **Action :** Explorer les extensions Chrome recommandées pour la sécurité et la confidentialité
 
-→ [Lire l'article](https://react.dev/blog/react-20)
+→ [Lire l'article](https://dev.to/uncle_drew/30-best-free-chrome-extensions-for-privacy-security-4-7ln)
 
 ---
 
@@ -35,4 +36,5 @@ source: BYAN-VeilleTech
 
 | Repo | Langage | Description |
 |------|---------|-------------|
-| [vitejs/vite](https://github.com/vitejs/vite) | TypeScript | Next generation frontend tooling with react plugin |
+| [thedotmack/claude-mem](https://github.com/thedotmack/claude-mem) | TypeScript | Plugin pour Claude Code qui capture les sessions de codage |
+| [EvoMap/evolver](https://github.com/EvoMap/evolver) | JavaScript | Moteur d'évolution pour les agents IA |
