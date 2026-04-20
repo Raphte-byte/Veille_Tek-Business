@@ -583,12 +583,69 @@ def build_html_email(data: dict, week: str) -> str:
     )
 
 
+def build_obsidian_frontmatter(data: dict) -> str:
+    """Génère le frontmatter YAML Obsidian avec tags automatiques depuis les thèmes."""
+    today = date_label()
+    week = week_label()
+
+    # Tags fixes
+    tags = ["veille", "tech", "automatique"]
+
+    # Tags dynamiques depuis les thèmes Groq
+    theme_tag_map = {
+        "IA": "IA",
+        "Machine Learning": "machine-learning",
+        "DevOps": "devops",
+        "Web": "web",
+        "Backend": "backend",
+        "Frontend": "frontend",
+        "Sécurité": "securite",
+        "Cloud": "cloud",
+        "Python": "python",
+        "JavaScript": "javascript",
+        "Rust": "rust",
+        "Go": "golang",
+    }
+    for theme in data.get("themes", []):
+        nom = theme.get("nom", "")
+        for keyword, tag in theme_tag_map.items():
+            if keyword.lower() in nom.lower() and tag not in tags:
+                tags.append(tag)
+
+    # Tags depuis les langages GitHub Trending
+    lang_tag_map = {
+        "Python": "python", "JavaScript": "javascript", "TypeScript": "typescript",
+        "Rust": "rust", "Go": "golang", "Java": "java",
+    }
+    for repo in data.get("repos", []):
+        lang = repo.get("langage", "")
+        if lang in lang_tag_map:
+            tag = lang_tag_map[lang]
+            if tag not in tags:
+                tags.append(tag)
+
+    tags_yaml = "\n".join(f"  - {t}" for t in tags)
+
+    return f"""---
+title: "Veille Tech — {week}"
+date: {today}
+semaine: "{week}"
+type: veille
+tags:
+{tags_yaml}
+source: BYAN-VeilleTech
+---
+"""
+
+
 def build_report(data: dict) -> str:
     """Construit le rapport Markdown complet depuis la structure JSON."""
     today = date_label()
     week = week_label()
+    frontmatter = build_obsidian_frontmatter(data)
     body = build_markdown_from_data(data)
-    return f"""# 📡 Veille Tech — Semaine du {week}
+    return f"""{frontmatter}
+# 📡 Veille Tech — Semaine du {week}
 
 *Généré le {today} par VEILLE-TECH*
 
