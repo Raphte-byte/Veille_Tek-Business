@@ -1,10 +1,5 @@
 [
   {
-    "date": "2026-06-26",
-    "skills_france": {},
-    "offers_nice": 0
-  },
-  {
     "date": "2026-07-03",
     "skills_france": {},
     "offers_nice": 0
@@ -56,6 +51,11 @@
   },
   {
     "date": "2026-09-11",
+    "skills_france": {},
+    "offers_nice": 0
+  },
+  {
+    "date": "2026-09-18",
     "skills_france": {},
     "offers_nice": 0
   }
